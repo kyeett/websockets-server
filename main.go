@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi"
 	"github.com/gorilla/websocket"
@@ -14,12 +15,17 @@ func (s *server) homeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) wsHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("New connection")
+
 	ws, err := s.Upgrade(w, r, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer ws.Close()
+	defer func() {
+		ws.Close()
+		fmt.Println("Connection closed")
+	}()
 
 	ws.WriteMessage(websocket.TextMessage, []byte("Welcome, sock"))
 }
@@ -29,13 +35,19 @@ type server struct {
 }
 
 func main() {
+	port, exists := os.LookupEnv("PORT")
+	if !exists {
+		log.Fatal("PORT not set")
+	}
+
 	var s server
 
 	r := chi.NewRouter()
 	r.Get("/", s.homeHandler)
 	r.Get("/ws", s.wsHandler)
 
-	if err := http.ListenAndServe(":8080", r); err != nil {
+	fmt.Printf("Listening on port %s\n", port)
+	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatal(err)
 	}
 }
